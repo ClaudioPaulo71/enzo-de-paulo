@@ -35,9 +35,11 @@ Construa a imagem Docker (isso vai ler o `Dockerfile` que preparamos para o Next
 docker build -t enzo-portfolio .
 ```
 
-### Passo 2: Rode o Container com Volumes Permanentes
+### Passo 2: Rode o Container com Volumes Permanentes (Traefik)
 
-Como as edições do CMS acontecem dentro da pasta `/app/public/data` e `/app/public/uploads` do container, precisamos criar um "Volume" no seu Linux para que esses dados **nunca se percam**, mesmo que você reconstrua a imagem no futuro.
+Como as edições do CMS acontecem dentro da pasta `/app/public/data` e `/app/public/uploads` do container, precisamos criar um "Volume" no seu Linux para que esses dados **nunca se percam**, mesmo que você reconstrua a imagem no futuro. 
+
+E, como eu vi que você utiliza o **Traefik** no seu servidor, nós não precisamos usar a porta 3000 ou configurar Nginx, basta subir o container com as **Labels (regras)** do Traefik para o domínio correto!
 
 ```bash
 # Crie pastas seguras no seu servidor Hostinger
@@ -50,58 +52,20 @@ cp public/data/* /opt/enzo-portfolio/public/data/
 # Dê a devida permissão para o usuário Nextjs (Criado no Dockerfile com ID 1001)
 chown -R 1001:1001 /opt/enzo-portfolio/public
 
-# Rode o container na porta 3000, linkando as pastas externas:
+# Rode o container integrando à mesma REDE do Traefik e com as Labels:
 docker run -d \
   --name enzo-site \
-  -p 3000:3000 \
+  --network NOME_DA_REDE_DO_TRAEFIK \
   -v /opt/enzo-portfolio/public/data:/app/public/data \
   -v /opt/enzo-portfolio/public/uploads:/app/public/uploads \
+  --label "traefik.enable=true" \
+  --label "traefik.http.routers.enzosite.rule=Host(\`enzodepaulo.tech\`, \`www.enzodepaulo.tech\`)" \
+  --label "traefik.http.services.enzosite.loadbalancer.server.port=3000" \
   --restart always \
   enzo-portfolio
 ```
+*(Nota: não esqueça de substituir `NOME_DA_REDE_DO_TRAEFIK` pelo nome exato da rede Docker que o seu Traefik está operando.)*
 
-### Passo 3: Configurando o Nginx e o Domínio
-
-O site agora está rodando na porta 3000 da sua VPS. Para que o domínio (`enzodepaulo.tech` ou `enzodepaulo.site`) funcione, precisamos configurar o **Nginx** como *Reverse Proxy*.
-
-Crie o arquivo do site no Nginx:
-```bash
-sudo nano /etc/nginx/sites-available/enzodepaulo
-```
-
-Cole a configuração abaixo (Substitua SEU_DOMINIO pelo domínio que você escolheu):
-```nginx
-server {
-    listen 80;
-    server_name SEU_DOMINIO.tech www.SEU_DOMINIO.tech;
-
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-```
-
-Ative e reinicie o Nginx:
-```bash
-ln -s /etc/nginx/sites-available/enzodepaulo /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl restart nginx
-```
-
-### Passo 4: HTTPS Seguro com o Certbot
-
-Por fim, instale o SSL grátis para o site ficar seguro:
-
-```bash
-sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d SEU_DOMINIO.tech -d www.SEU_DOMINIO.tech
-```
-
-Pronto! Seu site estará disponível em `https://enzodepaulo.tech` 🚀
+Pronto! Seu site estará disponível em `http://enzodepaulo.tech` ou até mesmo em HTTPS dependo de como o seu Traefik gerencia os certificados SSL (Let's Encrypt). 🚀
 
 
