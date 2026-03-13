@@ -12,6 +12,8 @@ import Footer from "@/components/Footer";
 import fs from "fs/promises";
 import path from "path";
 
+export const dynamic = 'force-dynamic';
+
 function Divider() {
   return <div className="section-divider" />;
 }
