@@ -38,9 +38,12 @@ async function saveImage(key: string, base64Data: string) {
 
 export async function POST(req: Request) {
   // Only allow in development mode or if explicitly enabled
+  /*
   if (process.env.NODE_ENV !== 'development') {
     return NextResponse.json({ error: 'Saving is only allowed in development mode' }, { status: 403 });
   }
+  */
+
 
   try {
     const { texts, images } = await req.json();
